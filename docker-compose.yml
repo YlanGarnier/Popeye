@@ -1,0 +1,70 @@
+version: "3.2"
+
+services:
+  db:
+    image: postgres:9.4
+    restart: always
+    networks:
+    - result-tier
+    - back-tier
+    volumes:
+    - db-data:/var/lib/postgresql/data
+    - "./schema.sql:/docker-entrypoint-initdb.d/init.sql"
+    environment:
+    - POSTGRES_USER=user
+    - POSTGRES_PASSWORD=popeye
+    - POSTGRES_DB=projetdemerde
+
+  poll:
+    restart: always
+    build: "./poll"
+    ports:
+    - "5000:80"
+    networks:
+    - poll-tier
+    depends_on:
+    - redis
+    environment:
+    - HOSTNAME=poll
+
+  redis:
+    restart: always
+    image: redis
+    ports:
+    - "6379:6379"
+    networks:
+    - poll-tier
+    - back-tier
+    environment:
+    - HOSTNAME=redis
+
+  worker:
+    restart: always
+    build: "./worker"
+    depends_on:
+    - db
+    - redis
+    networks:
+    - back-tier
+    environment:
+    - HOSTNAME=worker
+
+  result:
+    restart: always
+    build: "./result"
+    ports:
+    - "5001:80"
+    depends_on:
+    - db
+    networks:
+    - result-tier
+    environment:
+    - HOSTNAME=result
+
+networks:
+  poll-tier:
+  result-tier:
+  back-tier:
+
+volumes:
+  db-data:
